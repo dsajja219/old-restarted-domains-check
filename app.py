@@ -18,13 +18,20 @@ st.markdown("""
     background-color: #f4f6f9;
     padding: 25px;
 }
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
 th {
     background-color: #007BFF;
     color: white;
     text-align: center;
+    padding: 10px;
 }
 td {
     text-align: center;
+    padding: 8px;
+    vertical-align: top;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -56,12 +63,11 @@ def get_spf_record(domain):
         pass
     return None
 
-def extract_spf_ips(spf, domain, collected=None):
+def extract_spf_ips(spf, collected=None):
     if collected is None:
         collected = set()
 
-    parts = spf.split()
-    for part in parts:
+    for part in spf.split():
         if part.startswith("ip4:"):
             try:
                 net = ipaddress.ip_network(part.replace("ip4:", ""), strict=False)
@@ -74,7 +80,7 @@ def extract_spf_ips(spf, domain, collected=None):
             inc = part.replace("include:", "")
             inc_spf = get_spf_record(inc)
             if inc_spf:
-                extract_spf_ips(inc_spf, domain, collected)
+                extract_spf_ips(inc_spf, collected)
 
     return collected
 
@@ -126,13 +132,13 @@ if st.button("Validate SPF Domains"):
                     })
                     continue
 
-                ips = extract_spf_ips(spf, domain)
+                ips = extract_spf_ips(spf)
 
                 correct_ips, correct_ptrs = [], []
                 wrong_ips, wrong_ptrs = [], []
                 fdns_results = []
 
-                for ip in ips:
+                for ip in sorted(ips):
                     rdns_ok, ptr = validate_rdns(ip, domain)
                     if rdns_ok:
                         correct_ips.append(ip)
@@ -152,11 +158,11 @@ if st.button("Validate SPF Domains"):
                 rows.append({
                     "Domain": domain,
                     "SPF Record": spf,
-                    "SPF IPs": ", ".join(sorted(ips)),
-                    "Correct rDNS IPs": ", ".join(correct_ips) if correct_ips else "None",
-                    "Correct PTR Hostnames": ", ".join(correct_ptrs) if correct_ptrs else "None",
-                    "Wrong rDNS IPs": ", ".join(wrong_ips) if wrong_ips else "None",
-                    "Wrong PTR Hostnames": ", ".join(wrong_ptrs) if wrong_ptrs else "None",
+                    "SPF IPs": "<br>".join(sorted(ips)) if ips else "None",
+                    "Correct rDNS IPs": "<br>".join(correct_ips) if correct_ips else "None",
+                    "Correct PTR Hostnames": "<br>".join(correct_ptrs) if correct_ptrs else "None",
+                    "Wrong rDNS IPs": "<br>".join(wrong_ips) if wrong_ips else "None",
+                    "Wrong PTR Hostnames": "<br>".join(wrong_ptrs) if wrong_ptrs else "None",
                     "Strict fDNS Status": "PASS" if fdns_results and all(fdns_results) else "FAIL",
                     "Overall Status": overall
                 })
@@ -164,7 +170,7 @@ if st.button("Validate SPF Domains"):
         df = pd.DataFrame(rows)
 
         st.markdown("### ✅ SPF Validation Results")
-        st.markdown(df.to_html(index=False), unsafe_allow_html=True)
+        st.markdown(df.to_html(index=False, escape=False), unsafe_allow_html=True)
 
         st.download_button(
             "Download CSV",
