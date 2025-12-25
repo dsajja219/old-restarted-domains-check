@@ -115,7 +115,7 @@ def validate_fdns(ptr, ip):
         return False
 
 # ---------------- Action ----------------
-if st.button("Validate SPF Domains"):
+if st.button("Validate Domains"):
     domains = [d.strip() for d in domains_input.splitlines() if d.strip()]
 
     if not domains:
