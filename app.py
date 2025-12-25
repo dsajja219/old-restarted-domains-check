@@ -11,33 +11,43 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------- Styling ----------------
+# ---------------- Background & Styles ----------------
 st.markdown("""
 <style>
-.stApp {
-    background-color: #f4f6f9;
-    padding: 25px;
+body {
+    background-image: url("https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1950&q=80");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
 }
+.stApp {
+    background-color: rgba(255, 255, 255, 0.88);
+    padding: 30px;
+    border-radius: 16px;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
 }
 th {
-    background-color: #007BFF;
+    background-color: #2E8B57;
     color: white;
     text-align: center;
-    padding: 10px;
+    padding: 12px;
 }
 td {
     text-align: center;
-    padding: 8px;
+    padding: 10px;
     vertical-align: top;
+    color: #000;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------- Header ----------------
-st.markdown("<h1 style='text-align:center;'>Durga's SPF f/rDNS Validator</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;color:#145A32;'>Durga's SPF rDNS Validator</h1>", unsafe_allow_html=True)
+st.markdown("<h4 style='text-align:center;color:#1E8449;'>Nature-themed • SPF → rDNS → fDNS</h4>", unsafe_allow_html=True)
 
 # ---------------- Input ----------------
 domains_input = st.text_area(
@@ -92,10 +102,11 @@ def validate_rdns(ip, domain):
     except:
         return False, None
 
-    octet_ok = last_octet(ip) in ptr
-    domain_ok = get_main_domain(domain) in ptr
-
-    return octet_ok and domain_ok, ptr
+    return (
+        last_octet(ip) in ptr and
+        get_main_domain(domain) in ptr,
+        ptr
+    )
 
 def validate_fdns(ptr, ip):
     try:
@@ -113,7 +124,7 @@ if st.button("Validate SPF Domains"):
     else:
         rows = []
 
-        with st.spinner("Validating SPF & rDNS..."):
+        with st.spinner("Validating SPF, rDNS & fDNS..."):
             for domain in domains:
                 spf = get_spf_record(domain)
 
@@ -148,27 +159,21 @@ if st.button("Validate SPF Domains"):
                         wrong_ptrs.append(ptr if ptr else "No PTR")
                         fdns_results.append(False)
 
-                overall = (
-                    "✅ VALID"
-                    if ips and not wrong_ips and all(fdns_results)
-                    else "⚠️ PARTIAL"
-                )
-
                 rows.append({
                     "Domain": domain,
                     "SPF Record": spf,
-                    "SPF IPs": "<br>".join(sorted(ips)) if ips else "None",
+                    "SPF IPs": "<br>".join(sorted(ips)),
                     "Correct rDNS IPs": "<br>".join(correct_ips) if correct_ips else "None",
                     "Correct PTR Hostnames": "<br>".join(correct_ptrs) if correct_ptrs else "None",
                     "Wrong rDNS IPs": "<br>".join(wrong_ips) if wrong_ips else "None",
                     "Wrong PTR Hostnames": "<br>".join(wrong_ptrs) if wrong_ptrs else "None",
                     "Strict fDNS Status": "PASS" if fdns_results and all(fdns_results) else "FAIL",
-                    "Overall Status": overall
+                    "Overall Status": "✅ VALID" if correct_ips and not wrong_ips and all(fdns_results) else "⚠️ PARTIAL"
                 })
 
         df = pd.DataFrame(rows)
 
-        st.markdown("### ✅ SPF Validation Results")
+        st.markdown("### 🌱 SPF Validation Results")
         st.markdown(df.to_html(index=False, escape=False), unsafe_allow_html=True)
 
         st.download_button(
@@ -180,6 +185,6 @@ if st.button("Validate SPF Domains"):
 
 # ---------------- Footer ----------------
 st.markdown(
-    "<div style='text-align:center;margin-top:20px;'>Built with ❤️ by Durga</div>",
+    "<div style='text-align:center;margin-top:25px;color:#145A32;'>Built with ❤️ by Durga</div>",
     unsafe_allow_html=True
 )
