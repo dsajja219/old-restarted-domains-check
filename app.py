@@ -37,8 +37,7 @@ td {
 """, unsafe_allow_html=True)
 
 # ---------------- Header ----------------
-st.markdown("<h1 style='text-align:center;'>Durga's SPF rDNS Validator</h1>", unsafe_allow_html=True)
-st.markdown("<h4 style='text-align:center;'>SPF → rDNS → fDNS (Strict Mode)</h4>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>Durga's SPF f/rDNS Validator</h1>", unsafe_allow_html=True)
 
 # ---------------- Input ----------------
 domains_input = st.text_area(
