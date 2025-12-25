@@ -6,21 +6,16 @@ import tldextract
 
 # ---------------- Page Config ----------------
 st.set_page_config(
-    page_title="Durga's SPF & rDNS Validator",
+    page_title="Durga's Domain Auth Validator",
     layout="wide"
 )
 
-# ---------------- Styling ----------------
+# ---------------- Styles ----------------
 st.markdown("""
 <style>
-body {
-    background-image: url("https://images.unsplash.com/photo-1501785888041-af3ef285b470");
-    background-size: cover;
-}
 .stApp {
-    background-color: rgba(255,255,255,0.9);
+    background-color: #f5f7fa;
     padding: 25px;
-    border-radius: 15px;
 }
 th {
     background-color: #007BFF;
@@ -34,23 +29,17 @@ td {
 """, unsafe_allow_html=True)
 
 # ---------------- Header ----------------
-st.markdown("<h1 style='text-align:center;'>Durga's SPF & rDNS Validation App</h1>", unsafe_allow_html=True)
-st.markdown("<h4 style='text-align:center;'>Check SPF • rDNS • fDNS • Domain ↔ IP Alignment</h4>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>Durga's Domain SPF & rDNS Validator</h1>", unsafe_allow_html=True)
+st.markdown("<h4 style='text-align:center;'>Enter a domain → Auto-detect IPs → Validate SPF & rDNS</h4>", unsafe_allow_html=True)
 
-# ---------------- Inputs ----------------
-col1, col2 = st.columns(2)
-
-with col1:
-    domain = st.text_input("Domain", placeholder="example.com")
-
-with col2:
-    ips_input = st.text_input("IPs (comma separated)", placeholder="1.2.3.4, 5.6.7.8")
+# ---------------- Input ----------------
+domain = st.text_input("Enter Domain", placeholder="example.com")
 
 # ---------------- Helper Functions ----------------
 def get_spf(domain):
     try:
-        records = dns.resolver.resolve(domain, "TXT")
-        for r in records:
+        answers = dns.resolver.resolve(domain, "TXT")
+        for r in answers:
             txt = r.to_text().strip('"')
             if txt.lower().startswith("v=spf1"):
                 return txt
@@ -58,10 +47,20 @@ def get_spf(domain):
         pass
     return None
 
-def spf_allows_ip(spf, ip):
-    if not spf:
-        return False
-    return ip in spf or "all" in spf
+def get_mx_ips(domain):
+    ips = set()
+    try:
+        mx_answers = dns.resolver.resolve(domain, "MX")
+        for r in mx_answers:
+            host = str(r.exchange).rstrip(".")
+            try:
+                host_ips = {i[4][0] for i in socket.getaddrinfo(host, None)}
+                ips.update(host_ips)
+            except:
+                pass
+    except:
+        pass
+    return list(ips)
 
 def get_ptr(ip):
     try:
@@ -82,45 +81,47 @@ def same_main_domain(domain, hostname):
     return d1.domain == d2.domain and d1.suffix == d2.suffix
 
 # ---------------- Action ----------------
-if st.button("Validate SPF & rDNS"):
-    if not domain or not ips_input:
-        st.warning("Please enter domain and IPs")
+if st.button("Validate Domain"):
+    if not domain:
+        st.warning("Please enter a domain")
     else:
-        ips = [i.strip() for i in ips_input.split(",") if i.strip()]
-        spf = get_spf(domain)
+        with st.spinner("Discovering IPs & validating..."):
+            spf = get_spf(domain)
+            ips = get_mx_ips(domain)
 
-        rows = []
+            results = []
 
-        for ip in ips:
-            ptr = get_ptr(ip)
-            spf_status = "PASS" if spf_allows_ip(spf, ip) else "FAIL"
-
-            if ptr:
-                fdns = "PASS" if forward_dns_ok(ptr, ip) else "FAIL"
-                domain_match = "YES" if same_main_domain(domain, ptr) else "NO"
+            if not ips:
+                st.error("No MX IPs found. Domain cannot send email.")
             else:
-                fdns = "FAIL"
-                domain_match = "NO"
+                for ip in ips:
+                    ptr = get_ptr(ip)
 
-            if spf_status == "PASS" and fdns == "PASS":
-                overall = "✅ VALID"
-            elif spf_status == "PASS":
-                overall = "⚠️ PARTIAL"
-            else:
-                overall = "❌ INVALID"
+                    if ptr:
+                        fdns = "PASS" if forward_dns_ok(ptr, ip) else "FAIL"
+                        domain_match = "YES" if same_main_domain(domain, ptr) else "NO"
+                    else:
+                        fdns = "FAIL"
+                        domain_match = "NO"
 
-            rows.append({
-                "Domain": domain,
-                "IP": ip,
-                "SPF Record": spf or "Not Found",
-                "SPF Status": spf_status,
-                "PTR Hostname": ptr or "Missing",
-                "Forward DNS": fdns,
-                "Domain Match": domain_match,
-                "Overall Status": overall
-            })
+                    if spf and fdns == "PASS":
+                        overall = "✅ VALID"
+                    elif spf:
+                        overall = "⚠️ PARTIAL"
+                    else:
+                        overall = "❌ INVALID"
 
-        df = pd.DataFrame(rows)
+                    results.append({
+                        "Domain": domain,
+                        "Sending IP": ip,
+                        "SPF Record": spf or "Not Found",
+                        "PTR Hostname": ptr or "Missing",
+                        "Forward DNS": fdns,
+                        "Domain Match": domain_match,
+                        "Overall Status": overall
+                    })
+
+        df = pd.DataFrame(results)
 
         st.markdown("### ✅ Validation Results")
         st.markdown(df.to_html(index=False), unsafe_allow_html=True)
@@ -128,9 +129,12 @@ if st.button("Validate SPF & rDNS"):
         st.download_button(
             "Download CSV",
             df.to_csv(index=False),
-            file_name="spf_rdns_report.csv",
+            file_name="domain_auth_validation.csv",
             mime="text/csv"
         )
 
 # ---------------- Footer ----------------
-st.markdown("<div style='text-align:center;margin-top:20px;'>Built by Durga 🚀</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div style='text-align:center;margin-top:20px;'>Built by Durga 🚀</div>",
+    unsafe_allow_html=True
+)
