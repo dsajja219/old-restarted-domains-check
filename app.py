@@ -51,7 +51,7 @@ st.markdown("<h1 style='text-align:center;color:#145A32;'>Durga's SPF rDNS Valid
 # ---------------- Input ----------------
 domains_input = st.text_area(
     "Enter domains (one per line)",
-    placeholder="bedrockdealguide.com\nexample.com",
+    placeholder="example1.com\nexample2.com",
     height=150
 )
 
